@@ -8,6 +8,12 @@ import "./ISteak.sol";
 /// @title IChef
 /// @author Joshua Oladeji <analogdev.eth>
 interface IChef is IERC165 {
+    event Deposit(address indexed id, uint256 amount);
+
+    event Withdrawal(address indexed id, uint256 amount);
+
+    event ClaimRewards(address indexed id, uint256 rewards);
+
     /// @notice Types of tracked transactions
     enum TransactionType {
         DEPOSIT,

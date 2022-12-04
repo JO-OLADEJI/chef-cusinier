@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "openzeppelin/token/ERC20/IERC20.sol";
+import "openzeppelin/security/ReentrancyGuard.sol";
 import "./interfaces/IChef.sol";
 import "./interfaces/ISteak.sol";
 
@@ -20,7 +21,7 @@ import "./interfaces/ISteak.sol";
  * Happy cooking and may the gods of OpenZeppelin security be with you 🤝
  */
 
-contract Chef is IChef {
+contract Chef is IChef, ReentrancyGuard {
     /// @notice Token being staked to get rewards in `Steak` tokens
     IERC20 public override capitalToken;
     /// @notice `Steak` token being given out as reward to stakers of `Capital` token
@@ -96,7 +97,7 @@ contract Chef is IChef {
 
     /// @notice Stake `Capital` tokens to receive a portion of `Steak` tokens minted per block as rewards
     /// @param _amount Number of `Capital` tokens to deposit
-    function deposit(uint256 _amount) external override {
+    function deposit(uint256 _amount) external override nonReentrant {
         User storage user = _getUser(msg.sender);
         require(_amount > 0, "amount too low");
         require(
@@ -117,11 +118,13 @@ contract Chef is IChef {
         _clearUntrackedRewards(user);
 
         capitalToken.transferFrom(user.id, address(this), _amount);
+
+        emit Deposit(user.id, _amount);
     }
 
     /// @notice Unstake `Capital` tokens from contract
     /// @param _amount Number of `Capital` tokens to withdraw
-    function withdraw(uint256 _amount) external override {
+    function withdraw(uint256 _amount) external override nonReentrant {
         User storage user = _getUser(msg.sender);
         require(_amount > 0, "amount too low");
         require(user.capital >= _amount, "insufficient capital");
@@ -136,10 +139,12 @@ contract Chef is IChef {
         _clearUntrackedRewards(user);
 
         _safeCapitalWithdraw(_amount, user.id);
+
+        emit Withdrawal(user.id, _amount);
     }
 
     /// @notice Claims pending `Steak` rewards (if any) of msg.sender
-    function claimPendingSteak() external override {
+    function claimPendingSteak() external override nonReentrant {
         _claimPendingSteak();
     }
 
@@ -234,6 +239,8 @@ contract Chef is IChef {
         user.cachedSteak = 0;
 
         steakToken.serve(user.id, claimableSteak);
+
+        emit ClaimRewards(user.id, claimableSteak);
     }
 
     /// @notice Computes the number of `Steak` tokens accrued to a user from time user's last `deposit` or `withdrawal`
@@ -311,8 +318,6 @@ contract Chef is IChef {
     }
 }
 
-// add re-entrancy guard
-// add events to contract
 // add function to claim rewards when depositing and withdrawing tokens
 // add bonus multiplier
 // add protocol minting while claiming rewards
