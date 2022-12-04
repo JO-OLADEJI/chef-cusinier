@@ -3,11 +3,16 @@ pragma solidity ^0.8.13;
 
 import "openzeppelin/token/ERC20/IERC20.sol";
 import "openzeppelin/interfaces/IERC165.sol";
-import "./IRewardToken.sol";
+import "./ISteak.sol";
 
 /// @title IChefCusinier
 /// @author Joshua Oladeji <analogdev.eth>
 interface IChefCusinier is IERC165 {
+	enum TransactionType {
+        DEPOSIT,
+        WITHDRAWAL
+    }
+
     /// @notice Struct storing the info of a user (yield farmer)
     /// - id: Address of the user
     /// - capital: Amount of user's ERC20 tokens staked in this contract
