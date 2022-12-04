@@ -21,9 +21,29 @@ contract ChefCusinier is IChefCusinier {
     mapping(uint256 => mapping(address => uint256))
         private _untrackedClaimedSteak;
 
-    constructor(uint256 _steakPerBlock) {
+    constructor(
+        IERC20 _capitalToken,
+        ISteak _steakToken,
+        uint256 _steakPerBlock
+    ) {
+        require(_steakPerBlock > 0, "invalid steak rewards per block");
+
+        capitalToken = _capitalToken;
+        steakToken = _steakToken;
         steakPerBlock = _steakPerBlock;
-        // Come back to this later
+    }
+
+    function getUntrackedClaimedSteak(uint256 _block, address _user)
+        external
+        view
+        returns (uint256)
+    {
+        return _untrackedClaimedSteak[_block][_user];
+    }
+
+    function getPendingSteak(address _user) external view returns (uint256) {
+        User storage user = _getUser(_user);
+        return _getPendingSteak(user) + user.cachedSteak;
     }
 
     function getUser(address _id) external view returns (User memory) {
@@ -77,6 +97,10 @@ contract ChefCusinier is IChefCusinier {
         _clearUntrackedRewards(user);
 
         _safeCapitalWithdraw(_amount, user.id);
+    }
+
+    function claimPendingSteak() external {
+        _claimPendingSteak();
     }
 
     function _syncTxBlocks(uint256 _amount, TransactionType _txType) private {
@@ -133,10 +157,9 @@ contract ChefCusinier is IChefCusinier {
 
         // get sum of user's pending steak and cached steak
         uint256 claimableSteak = _getPendingSteak(user) + user.cachedSteak;
-        user.cachedSteak = 0;
 
         // if no transaction is recorded for this timestamp, add it to the user's untracked reward blocks
-        if (_txBlocks[_txBlocks.length - 1] != block.timestamp) {
+        if (_txBlocks[_txBlocks.length - 1] < block.timestamp) {
             if (
                 user.untrackedRewardBlocks.length == 0 ||
                 (user.untrackedRewardBlocks.length > 0 &&
@@ -147,10 +170,13 @@ contract ChefCusinier is IChefCusinier {
             ) {
                 user.untrackedRewardBlocks.push(block.timestamp);
             }
-            _untrackedClaimedSteak[block.timestamp][user.id] += claimableSteak;
+            _untrackedClaimedSteak[block.timestamp][user.id] +=
+                claimableSteak -
+                user.cachedSteak;
         } else {
             user.blockRewardIndex = _txBlocks.length - 1;
         }
+        user.cachedSteak = 0;
 
         steakToken.serve(user.id, claimableSteak);
     }
@@ -169,7 +195,7 @@ contract ChefCusinier is IChefCusinier {
 
         uint256 pendingSteak;
 
-        // 1. calculate the pending rewards to the last tracked block
+        // calculate pending rewards to the last tracked block
         if (_txBlocks.length == 2 && _user.blockRewardIndex == 0) {
             pendingSteak +=
                 (steakPerBlock *
@@ -196,7 +222,6 @@ contract ChefCusinier is IChefCusinier {
             }
         }
 
-        // 2. calculate the pending reward from last tracked block to current timestamp
         // add rewards accumulated from latest tracked `_txBlock` up to current block
         if (block.timestamp > _txBlocks[_txBlocks.length - 1]) {
             pendingSteak +=
@@ -209,7 +234,7 @@ contract ChefCusinier is IChefCusinier {
 
         pendingSteak /= DIVISION_PRECISION;
 
-        // 3. subtract any claimed rewards from the sum of 1 & 2
+        // subtract any claimed rewards from the calculated pending rewards
         if (_user.untrackedRewardBlocks.length > 0) {
             for (uint256 i = 0; i < _user.untrackedRewardBlocks.length; ) {
                 pendingSteak -= _untrackedClaimedSteak[
