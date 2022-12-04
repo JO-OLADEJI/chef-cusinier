@@ -8,7 +8,7 @@ import "./ISteak.sol";
 /// @title IChefCusinier
 /// @author Joshua Oladeji <analogdev.eth>
 interface IChefCusinier is IERC165 {
-	enum TransactionType {
+    enum TransactionType {
         DEPOSIT,
         WITHDRAWAL
     }
@@ -25,6 +25,14 @@ interface IChefCusinier is IERC165 {
         uint256 cachedSteak;
         uint256 blockRewardIndex;
         uint256[] untrackedRewardBlocks;
+    }
+
+    /// @notice Struct storing the info of a pool (LP token)
+    /// - capitalToken: Address of pool
+    /// - rewardWeight: Weight specifying the fraction of steakPerBlock minted as rewards to users of a pool
+    struct Pool {
+        IERC20 capitalToken;
+        uint96 rewardWeight;
     }
 
     // /// @notice Amount of stake tokens deposited by yield farmers
