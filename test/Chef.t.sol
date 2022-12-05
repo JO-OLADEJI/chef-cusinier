@@ -29,7 +29,7 @@ contract ChefTest is Test {
         steakToken = ISteak(_steakToken);
 
         chef = new Chef(capitalToken, steakToken, 100, protocol, protocolShare);
-        steakToken.setChef(IChef(chef));
+        steakToken.setChef(address(chef));
 
         // give unlimited approval to ChefCusinier contract
         vm.prank(alice);

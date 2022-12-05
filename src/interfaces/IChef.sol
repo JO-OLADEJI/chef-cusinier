@@ -5,8 +5,13 @@ import "openzeppelin/token/ERC20/IERC20.sol";
 import "openzeppelin/interfaces/IERC165.sol";
 import "./ISteak.sol";
 
-/// @title IChef
-/// @author Joshua Oladeji <analogdev.eth>
+/**
+ *
+ * @title IChef
+ * @author Joshua Oladeji <analogdev.eth>
+ *
+ */
+
 interface IChef is IERC165 {
     event Deposit(address indexed id, uint256 amount);
 

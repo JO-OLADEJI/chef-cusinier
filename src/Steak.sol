@@ -4,14 +4,18 @@ pragma solidity ^0.8.13;
 import "openzeppelin/token/ERC20/ERC20.sol";
 import "openzeppelin/access/Ownable.sol";
 import "./interfaces/ISteak.sol";
-import "./interfaces/IChef.sol";
 
-/// @title Steak
-/// @notice Token contract used by Chef to distrubute rewards
-/// @author Joshua Oladeji <analogdev.eth>
+/**
+ *
+ * @title Steak
+ * @notice Token contract used by Chef/ChefCusinier to distrubute rewards
+ * @author Joshua Oladeji <analogdev.eth>
+ *
+ */
+
 contract Steak is ISteak, ERC20, Ownable {
-    /// @notice ChefCusinier contract responsible for minting reward tokens
-    IChef public override chef;
+    /// @notice Chef/ChefCusinier contract responsible for minting reward tokens
+    address public override chef;
 
     modifier onlyChef() {
         require(msg.sender == address(chef));
@@ -21,9 +25,15 @@ contract Steak is ISteak, ERC20, Ownable {
     /// @notice Constructor
     constructor() ERC20("Steak", "STK") {}
 
-    /// @notice Set address of ChefCusinier contract responsible for minting reward tokens
-    /// @param _chef Address of ChefCusinier contract
-    function setChef(IChef _chef) external override onlyOwner {
+    /// @notice Set address of Chef/ChefCusinier contract responsible for minting reward tokens
+    /// @param _chef Address of Chef/ChefCusinier contract
+    function setChef(address _chef) external override onlyOwner {
+        uint256 length;
+        assembly {
+            length := extcodesize(_chef)
+        }
+        require(length > 0, "chef not contract!");
+
         chef = _chef;
     }
 
