@@ -83,7 +83,9 @@ contract ChefTest is Test {
         // ----------------------- BLOCK.TIMESTAMP = 25 -----------------------
         _mintCapitalTokens(alice, 200);
         vm.prank(alice);
-        chef.deposit(200);
+        chef.depositAndClaimRewards(200);
+        uint256 aliceAR_X = 142; // rewards claimed while depositing
+        protocolRewards += (aliceAR_X * protocolShare) / 100;
 
         uint256 bobAR_1 = 971;
         assertEq(chef.getPendingSteak(bob), bobAR_1);
@@ -92,7 +94,7 @@ contract ChefTest is Test {
         assertEq(steakToken.balanceOf(bob), bobAR_1);
         protocolRewards += (bobAR_1 * protocolShare) / 100;
 
-        assertEq(chef.getPendingSteak(alice), 142);
+        assertEq(chef.getPendingSteak(alice), 0);
         assertEq(chef.getPendingSteak(bob), 0);
         assertEq(chef.getPendingSteak(charlie), 285);
         // ----------------------------------------------------------------------
@@ -104,7 +106,7 @@ contract ChefTest is Test {
         vm.prank(charlie);
         chef.deposit(1_000);
 
-        assertEq(chef.getPendingSteak(alice), 642);
+        assertEq(chef.getPendingSteak(alice), 500);
         assertEq(chef.getPendingSteak(bob), 666);
         assertEq(chef.getPendingSteak(charlie), 619);
         // ----------------------------------------------------------------------
@@ -112,7 +114,7 @@ contract ChefTest is Test {
         skip(20);
 
         // ----------------------- BLOCK.TIMESTAMP = 60 -----------------------
-        assertEq(chef.getPendingSteak(alice), 957);
+        assertEq(chef.getPendingSteak(alice), 815);
         assertEq(chef.getPendingSteak(bob), 1087);
         assertEq(chef.getPendingSteak(charlie), 1882);
 
@@ -123,11 +125,14 @@ contract ChefTest is Test {
         skip(40);
 
         // ----------------------- BLOCK.TIMESTAMP = 100 -----------------------
-        uint256 aliceAR_2 = 1663;
+        uint256 aliceAR_2 = 1521;
         assertEq(chef.getPendingSteak(alice), aliceAR_2);
         vm.prank(alice);
         chef.claimPendingSteak();
-        assertEq(steakToken.balanceOf(alice), aliceAR_1 + aliceAR_2);
+        assertEq(
+            steakToken.balanceOf(alice),
+            aliceAR_1 + aliceAR_2 + aliceAR_X
+        );
         protocolRewards += (aliceAR_2 * protocolShare) / 100;
 
         uint256 bobAR_2 = 1557;
@@ -138,11 +143,13 @@ contract ChefTest is Test {
         protocolRewards += (bobAR_2 * protocolShare) / 100;
 
         vm.prank(charlie);
-        chef.withdraw(500);
+        chef.withdrawAndClaimRewards(500);
+        uint256 charlieAR_X = 4705;
+        protocolRewards += (charlieAR_X * protocolShare) / 100;
 
         assertEq(chef.getPendingSteak(alice), 0);
         assertEq(chef.getPendingSteak(bob), 0);
-        assertEq(chef.getPendingSteak(charlie), 4705);
+        assertEq(chef.getPendingSteak(charlie), 0);
         // ----------------------------------------------------------------------
 
         skip(10);
@@ -154,14 +161,13 @@ contract ChefTest is Test {
         chef.claimPendingSteak();
         assertEq(
             steakToken.balanceOf(alice),
-            aliceAR_1 + aliceAR_2 + aliceAR_3
+            aliceAR_1 + aliceAR_2 + aliceAR_3 + aliceAR_X
         );
         protocolRewards += (aliceAR_3 * protocolShare) / 100;
 
         assertEq(chef.getPendingSteak(alice), 0);
         assertEq(chef.getPendingSteak(bob), 167);
-        assertEq(chef.getPendingSteak(charlie), 5288);
-
+        assertEq(chef.getPendingSteak(charlie), 583);
         // ----------------------------------------------------------------------
 
         skip(10);
@@ -173,13 +179,13 @@ contract ChefTest is Test {
         chef.claimPendingSteak();
         assertEq(
             steakToken.balanceOf(alice),
-            aliceAR_1 + aliceAR_2 + aliceAR_3 + aliceAR_4
+            aliceAR_1 + aliceAR_2 + aliceAR_3 + aliceAR_4 + aliceAR_X
         );
         protocolRewards += (aliceAR_4 * protocolShare) / 100;
 
         assertEq(chef.getPendingSteak(alice), 0);
         assertEq(chef.getPendingSteak(bob), 333);
-        assertEq(chef.getPendingSteak(charlie), 5871);
+        assertEq(chef.getPendingSteak(charlie), 1166);
         // ----------------------------------------------------------------------
 
         skip(15);
@@ -191,7 +197,12 @@ contract ChefTest is Test {
         chef.claimPendingSteak();
         assertEq(
             steakToken.balanceOf(alice),
-            aliceAR_1 + aliceAR_2 + aliceAR_3 + aliceAR_4 + aliceAR_5
+            aliceAR_1 +
+                aliceAR_2 +
+                aliceAR_3 +
+                aliceAR_4 +
+                aliceAR_5 +
+                aliceAR_X
         );
         protocolRewards += (aliceAR_5 * protocolShare) / 100;
 
@@ -202,11 +213,11 @@ contract ChefTest is Test {
         assertEq(steakToken.balanceOf(bob), bobAR_1 + bobAR_2 + bobAR_3);
         protocolRewards += (bobAR_3 * protocolShare) / 100;
 
-        uint256 charlieAR_1 = 6746;
+        uint256 charlieAR_1 = 2041;
         assertEq(chef.getPendingSteak(charlie), charlieAR_1);
         vm.prank(charlie);
         chef.claimPendingSteak();
-        assertEq(steakToken.balanceOf(charlie), charlieAR_1);
+        assertEq(steakToken.balanceOf(charlie), charlieAR_1 + charlieAR_X);
         protocolRewards += (charlieAR_1 * protocolShare) / 100;
 
         assertEq(chef.getPendingSteak(alice), 0);

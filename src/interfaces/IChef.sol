@@ -52,7 +52,11 @@ interface IChef is IERC165 {
 
     function deposit(uint256 _amount) external;
 
+    function depositAndClaimRewards(uint256 _amount) external;
+
     function withdraw(uint256 _amount) external;
+
+    function withdrawAndClaimRewards(uint256 _amount) external;
 
     function claimPendingSteak() external;
 

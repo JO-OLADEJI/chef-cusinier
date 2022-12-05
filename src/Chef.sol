@@ -110,6 +110,7 @@ contract Chef is IChef, ReentrancyGuard, Ownable {
 
     /// @notice Stake `Capital` tokens to receive a portion of `Steak` tokens minted per block as rewards
     /// @param _amount Number of `Capital` tokens to deposit
+    /// NOTE: This function does not claim pending `Steak` rewards
     function deposit(uint256 _amount) external override nonReentrant {
         User storage user = _getUser(msg.sender);
         require(_amount > 0, "amount too low");
@@ -129,7 +130,35 @@ contract Chef is IChef, ReentrancyGuard, Ownable {
         user.capital += _amount;
 
         _clearUntrackedRewards(user);
+        capitalToken.transferFrom(user.id, address(this), _amount);
 
+        emit Deposit(user.id, _amount);
+    }
+
+    /// @notice Stake `Capital` tokens to receive a portion of `Steak` tokens minted per second
+    /// @notice as rewards and withdraw pending `Steak` rewards
+    /// @param _amount Number of `Capital` tokens to deposit
+    function depositAndClaimRewards(uint256 _amount)
+        external
+        override
+        nonReentrant
+    {
+        User storage user = _getUser(msg.sender);
+        require(_amount > 0, "amount too low");
+        require(
+            capitalToken.balanceOf(msg.sender) >= _amount,
+            "insufficient balance"
+        );
+
+        if (user.id == address(0)) {
+            user.id = msg.sender;
+        }
+        _syncTxBlocks(_amount, TransactionType.DEPOSIT);
+
+        _claimPendingSteak();
+        user.capital += _amount;
+
+        _clearUntrackedRewards(user);
         capitalToken.transferFrom(user.id, address(this), _amount);
 
         emit Deposit(user.id, _amount);
@@ -137,6 +166,7 @@ contract Chef is IChef, ReentrancyGuard, Ownable {
 
     /// @notice Unstake `Capital` tokens from contract
     /// @param _amount Number of `Capital` tokens to withdraw
+    /// NOTE: This function does not claim pending `Steak` rewards
     function withdraw(uint256 _amount) external override nonReentrant {
         User storage user = _getUser(msg.sender);
         require(_amount > 0, "amount too low");
@@ -150,7 +180,28 @@ contract Chef is IChef, ReentrancyGuard, Ownable {
         user.capital -= _amount;
 
         _clearUntrackedRewards(user);
+        _safeCapitalWithdraw(_amount, user.id);
 
+        emit Withdrawal(user.id, _amount);
+    }
+
+    /// @notice Unstake `Capital` tokens from  and withdraw pending `Steak` rewards
+    /// @param _amount Number of `Capital` tokens to withdraw
+    function withdrawAndClaimRewards(uint256 _amount)
+        external
+        override
+        nonReentrant
+    {
+        User storage user = _getUser(msg.sender);
+        require(_amount > 0, "amount too low");
+        require(user.capital >= _amount, "insufficient capital");
+
+        _syncTxBlocks(_amount, TransactionType.WITHDRAWAL);
+
+        _claimPendingSteak();
+        user.capital -= _amount;
+
+        _clearUntrackedRewards(user);
         _safeCapitalWithdraw(_amount, user.id);
 
         emit Withdrawal(user.id, _amount);
@@ -272,10 +323,12 @@ contract Chef is IChef, ReentrancyGuard, Ownable {
         }
         user.cachedSteak = 0;
 
-        steakToken.serve(user.id, claimableSteak);
-        _claimProtocolRewards(claimableSteak);
+        if (claimableSteak > 0) {
+            steakToken.serve(user.id, claimableSteak);
+            _claimProtocolRewards(claimableSteak);
 
-        emit ClaimRewards(user.id, claimableSteak);
+            emit ClaimRewards(user.id, claimableSteak);
+        }
     }
 
     /// @notice Mint a percent of `Steak` tokens to protocol for every time a user claims rewards
@@ -283,7 +336,9 @@ contract Chef is IChef, ReentrancyGuard, Ownable {
     function _claimProtocolRewards(uint256 _userRewards) private {
         if (protocolAddress != address(0) && protocolShare != 0) {
             uint256 share = (_userRewards * protocolShare) / 100;
-            steakToken.serve(protocolAddress, share);
+            if (share > 0) {
+                steakToken.serve(protocolAddress, share);
+            }
         }
     }
 
@@ -361,6 +416,3 @@ contract Chef is IChef, ReentrancyGuard, Ownable {
         return pendingSteak;
     }
 }
-
-// add function to claim rewards when depositing and withdrawing tokens
-// add bonus multiplier
