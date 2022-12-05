@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "openzeppelin/token/ERC20/IERC20.sol";
 import "openzeppelin/security/ReentrancyGuard.sol";
+import "openzeppelin/access/Ownable.sol";
 import "./interfaces/IChef.sol";
 import "./interfaces/ISteak.sol";
 
@@ -21,11 +22,16 @@ import "./interfaces/ISteak.sol";
  * Happy cooking and may the gods of OpenZeppelin security be with you 🤝
  */
 
-contract Chef is IChef, ReentrancyGuard {
+contract Chef is IChef, ReentrancyGuard, Ownable {
     /// @notice Token being staked to get rewards in `Steak` tokens
     IERC20 public override capitalToken;
     /// @notice `Steak` token being given out as reward to stakers of `Capital` token
     ISteak public override steakToken;
+    /// @notice Address to mint protocol rewards to when a user claims `Steak` rewards
+    address public override protocolAddress;
+    /// @notice Percent of rewards that goes to protocol on every `Steak` reward minted to a user
+    /// @dev Number should range from 0-10 inclusive
+    uint96 public override protocolShare;
 
     /// @notice Number of `Steak` tokens given out as rewards every second
     uint256 public override steakPerSecond;
@@ -49,16 +55,23 @@ contract Chef is IChef, ReentrancyGuard {
     /// @param _capitalToken Address of `Capital` token to be staked
     /// @param _steakToken Address of `Steak` token given out as rewards to stakers
     /// @param _steakPerSecond Amount of `Steak` tokens given out per seconds are rewards
+    /// @param _protocolAddress Address to receive protocol rewards. Can be address(0)
+    /// @param _protocolShare Percent of rewards that goes to protocol address. 0-10 inclusive
     constructor(
         IERC20 _capitalToken,
         ISteak _steakToken,
-        uint256 _steakPerSecond
+        uint256 _steakPerSecond,
+        address _protocolAddress,
+        uint96 _protocolShare
     ) {
         require(_steakPerSecond > 0, "invalid steak per second");
+        require(_protocolShare <= 10, "exceeds 10% max protocol share");
 
         capitalToken = _capitalToken;
         steakToken = _steakToken;
         steakPerSecond = _steakPerSecond;
+        protocolAddress = _protocolAddress;
+        protocolShare = _protocolShare;
     }
 
     /* View Functions */
@@ -146,6 +159,27 @@ contract Chef is IChef, ReentrancyGuard {
     /// @notice Claims pending `Steak` rewards (if any) of msg.sender
     function claimPendingSteak() external override nonReentrant {
         _claimPendingSteak();
+    }
+
+    /// @notice Sets protocol address to receive protocol rewards
+    /// @param _protocolAddress New address of protocol
+    function setProtocolAddress(address _protocolAddress)
+        external
+        override
+        onlyOwner
+    {
+        protocolAddress = _protocolAddress;
+    }
+
+    /// @notice Sets percent of rewards to be minted to protocol address
+    /// @param _protocolShare Number should range from 0-10 inclusive
+    function setProtocolShare(uint96 _protocolShare)
+        external
+        override
+        onlyOwner
+    {
+        require(_protocolShare <= 10, "exceeds 10% max protocol share");
+        protocolShare = _protocolShare;
     }
 
     /* Private Functions */
@@ -239,8 +273,18 @@ contract Chef is IChef, ReentrancyGuard {
         user.cachedSteak = 0;
 
         steakToken.serve(user.id, claimableSteak);
+        _claimProtocolRewards(claimableSteak);
 
         emit ClaimRewards(user.id, claimableSteak);
+    }
+
+    /// @notice Mint a percent of `Steak` tokens to protocol for every time a user claims rewards
+    /// @param _userRewards Amount of `Steak` tokens minted to user as reward
+    function _claimProtocolRewards(uint256 _userRewards) private {
+        if (protocolAddress != address(0) && protocolShare != 0) {
+            uint256 share = (_userRewards * protocolShare) / 100;
+            steakToken.serve(protocolAddress, share);
+        }
     }
 
     /// @notice Computes the number of `Steak` tokens accrued to a user from time user's last `deposit` or `withdrawal`
@@ -320,4 +364,3 @@ contract Chef is IChef, ReentrancyGuard {
 
 // add function to claim rewards when depositing and withdrawing tokens
 // add bonus multiplier
-// add protocol minting while claiming rewards

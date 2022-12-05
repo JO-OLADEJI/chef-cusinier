@@ -38,6 +38,10 @@ interface IChef is IERC165 {
 
     function steakToken() external view returns (ISteak);
 
+    function protocolAddress() external view returns (address);
+
+    function protocolShare() external view returns (uint96);
+
     function steakPerSecond() external view returns (uint256);
 
     function trackedCapital() external view returns (uint256);
@@ -51,4 +55,8 @@ interface IChef is IERC165 {
     function withdraw(uint256 _amount) external;
 
     function claimPendingSteak() external;
+
+    function setProtocolAddress(address _protocolAddress) external;
+
+    function setProtocolShare(uint96 _protocolShare) external;
 }

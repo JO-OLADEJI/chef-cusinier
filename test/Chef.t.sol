@@ -13,11 +13,13 @@ contract ChefTest is Test {
     Chef public chef;
     IERC20 public capitalToken;
     ISteak public steakToken;
-    uint256 public steakPerBlock = 100;
+    uint256 public steakPerSecond = 100;
 
     address public alice = address(0xa);
     address public bob = address(0xb);
     address public charlie = address(0xc);
+    address public protocol = address(0xabc);
+    uint96 public protocolShare = 5; // 5%
 
     function setUp() public {
         Steak _steakToken = new Steak();
@@ -26,7 +28,7 @@ contract ChefTest is Test {
         capitalToken = IERC20(_capitalToken);
         steakToken = ISteak(_steakToken);
 
-        chef = new Chef(capitalToken, steakToken, 100);
+        chef = new Chef(capitalToken, steakToken, 100, protocol, protocolShare);
         steakToken.setChef(IChef(chef));
 
         // give unlimited approval to ChefCusinier contract
@@ -41,6 +43,8 @@ contract ChefTest is Test {
     }
 
     function testRewards() public {
+        uint256 protocolRewards;
+
         // ---------- BLOCK.TIMESTAMP = 0 ----------
         _mintCapitalTokens(alice, 100);
         vm.prank(alice);
@@ -63,6 +67,7 @@ contract ChefTest is Test {
         vm.prank(alice);
         chef.claimPendingSteak();
         assertEq(steakToken.balanceOf(alice), aliceAR_1);
+        protocolRewards += (aliceAR_1 * protocolShare) / 100;
 
         _mintCapitalTokens(charlie, 200);
         vm.prank(charlie);
@@ -85,6 +90,7 @@ contract ChefTest is Test {
         vm.prank(bob);
         chef.claimPendingSteak();
         assertEq(steakToken.balanceOf(bob), bobAR_1);
+        protocolRewards += (bobAR_1 * protocolShare) / 100;
 
         assertEq(chef.getPendingSteak(alice), 142);
         assertEq(chef.getPendingSteak(bob), 0);
@@ -122,12 +128,14 @@ contract ChefTest is Test {
         vm.prank(alice);
         chef.claimPendingSteak();
         assertEq(steakToken.balanceOf(alice), aliceAR_1 + aliceAR_2);
+        protocolRewards += (aliceAR_2 * protocolShare) / 100;
 
         uint256 bobAR_2 = 1557;
         assertEq(chef.getPendingSteak(bob), bobAR_2);
         vm.prank(bob);
         chef.claimPendingSteak();
         assertEq(steakToken.balanceOf(bob), bobAR_1 + bobAR_2);
+        protocolRewards += (bobAR_2 * protocolShare) / 100;
 
         vm.prank(charlie);
         chef.withdraw(500);
@@ -148,6 +156,7 @@ contract ChefTest is Test {
             steakToken.balanceOf(alice),
             aliceAR_1 + aliceAR_2 + aliceAR_3
         );
+        protocolRewards += (aliceAR_3 * protocolShare) / 100;
 
         assertEq(chef.getPendingSteak(alice), 0);
         assertEq(chef.getPendingSteak(bob), 167);
@@ -166,6 +175,7 @@ contract ChefTest is Test {
             steakToken.balanceOf(alice),
             aliceAR_1 + aliceAR_2 + aliceAR_3 + aliceAR_4
         );
+        protocolRewards += (aliceAR_4 * protocolShare) / 100;
 
         assertEq(chef.getPendingSteak(alice), 0);
         assertEq(chef.getPendingSteak(bob), 333);
@@ -183,24 +193,32 @@ contract ChefTest is Test {
             steakToken.balanceOf(alice),
             aliceAR_1 + aliceAR_2 + aliceAR_3 + aliceAR_4 + aliceAR_5
         );
+        protocolRewards += (aliceAR_5 * protocolShare) / 100;
 
         uint256 bobAR_3 = 583;
         assertEq(chef.getPendingSteak(bob), bobAR_3);
         vm.prank(bob);
         chef.claimPendingSteak();
         assertEq(steakToken.balanceOf(bob), bobAR_1 + bobAR_2 + bobAR_3);
+        protocolRewards += (bobAR_3 * protocolShare) / 100;
 
         uint256 charlieAR_1 = 6746;
         assertEq(chef.getPendingSteak(charlie), charlieAR_1);
         vm.prank(charlie);
         chef.claimPendingSteak();
         assertEq(steakToken.balanceOf(charlie), charlieAR_1);
+        protocolRewards += (charlieAR_1 * protocolShare) / 100;
 
         assertEq(chef.getPendingSteak(alice), 0);
         assertEq(chef.getPendingSteak(bob), 0);
         assertEq(chef.getPendingSteak(charlie), 0);
+        assertEq(steakToken.balanceOf(protocol), protocolRewards);
 
-        assertApproxEqAbs(steakToken.totalSupply(), 135 * steakPerBlock, 5);
+        assertApproxEqAbs(
+            steakToken.totalSupply(),
+            (135 * steakPerSecond) + protocolRewards,
+            5
+        );
         // ----------------------------------------------------------------------
     }
 
